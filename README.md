@@ -18,7 +18,7 @@ Prerequisites
 * Python 3.10+
 * Node.js & npm
 
-🚀 Run Steps
+Run Steps
 (Note: You will need three separate terminal windows to run the application services).
 
 1. Backend API (Terminal 1)

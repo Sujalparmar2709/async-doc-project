@@ -10,6 +10,12 @@ function App() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editFormText, setEditFormText] = useState<string>("")
 
+  // --- NEW: STATE FOR SEARCH, FILTER, AND SORT ---
+  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [statusFilter, setStatusFilter] = useState<string>("All")
+  const [sortField, setSortField] = useState<string>("id") 
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (jobId && (status === "Queued" || status === "Processing")) {
@@ -31,8 +37,10 @@ function App() {
     try {
       const response = await fetch("http://127.0.0.1:8000/documents/");
       const data = await response.json();
-      const sortedData = data.sort((a: any, b: any) => b.id - a.id);
-      setAllDocuments(sortedData);
+      // SAFETY NET: Make sure data is an array before saving it, and remove hardcoded sorting
+      if (Array.isArray(data)) {
+        setAllDocuments(data);
+      }
     } catch (error) {}
   };
 
@@ -100,8 +108,6 @@ function App() {
     }
   };
 
-  // --- NEW: THE EXPORT BUTTON ACTIONS ---
-  // Because the backend sends back a file attachment, we can just open the link directly!
   const handleExportJSON = () => {
     window.open("http://127.0.0.1:8000/export/json", "_blank");
   };
@@ -110,8 +116,48 @@ function App() {
     window.open("http://127.0.0.1:8000/export/csv", "_blank");
   };
 
+  // --- NEW: SORTING CLICK HANDLER ---
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("desc"); // Default to descending when clicking a new column
+    }
+  };
+
+  // --- NEW: APPLY SEARCH, FILTER, AND SORT ---
+  // We create a copy of our data to modify for the screen
+  let displayedDocuments = [...allDocuments];
+
+  // 1. Search Logic
+  if (searchTerm) {
+    displayedDocuments = displayedDocuments.filter(doc => 
+      (doc.filename && doc.filename.toLowerCase().includes(searchTerm.toLowerCase())) || 
+      (doc.id && doc.id.toString().includes(searchTerm))
+    );
+  }
+
+  // 2. Filter Logic
+  if (statusFilter !== "All") {
+    displayedDocuments = displayedDocuments.filter(doc => doc.status === statusFilter);
+  }
+
+  // 3. Sort Logic
+  displayedDocuments.sort((a, b) => {
+    let valA = a[sortField] !== null && a[sortField] !== undefined ? a[sortField] : "";
+    let valB = b[sortField] !== null && b[sortField] !== undefined ? b[sortField] : "";
+    
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+
+    if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+    if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+    return 0;
+  });
+
   return (
-    <div style={{ padding: "40px", fontFamily: "sans-serif", maxWidth: "900px", margin: "0 auto" }}>
+    <div style={{ padding: "40px", fontFamily: "sans-serif", maxWidth: "950px", margin: "0 auto" }}>
       <h1>Document Processing System</h1>
       <p>Upload a document to simulate asynchronous data extraction.</p>
       
@@ -122,7 +168,6 @@ function App() {
         </button>
       </div>
 
-      {/* NEW: Export Buttons Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "40px", borderBottom: "2px solid #ddd", paddingBottom: "10px" }}>
         <h2 style={{ margin: 0 }}>All Uploaded Documents</h2>
         <div>
@@ -135,63 +180,107 @@ function App() {
         </div>
       </div>
 
+      {/* NEW: SEARCH AND FILTER UI */}
+      <div style={{ display: "flex", gap: "15px", margin: "20px 0", padding: "15px", backgroundColor: "#e9ecef", borderRadius: "8px" }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontWeight: "bold", marginRight: "10px" }}>Search:</label>
+          <input 
+            type="text" 
+            placeholder="Search by filename or ID..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ padding: "8px", width: "70%", borderRadius: "4px", border: "1px solid #ccc" }}
+          />
+        </div>
+        <div>
+          <label style={{ fontWeight: "bold", marginRight: "10px" }}>Filter Status:</label>
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc", minWidth: "150px" }}
+          >
+            <option value="All">All Statuses</option>
+            <option value="Queued">Queued</option>
+            <option value="Processing">Processing</option>
+            <option value="Completed">Completed</option>
+            <option value="Finalized">Finalized</option>
+          </select>
+        </div>
+      </div>
+
       <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", marginTop: "10px" }}>
         <thead>
           <tr style={{ backgroundColor: "#f0f0f0", borderBottom: "2px solid #ddd" }}>
-            <th style={{ padding: "12px" }}>ID</th>
-            <th style={{ padding: "12px" }}>Filename</th>
-            <th style={{ padding: "12px" }}>Status</th>
+            {/* NEW: CLICKABLE HEADERS FOR SORTING */}
+            <th onClick={() => handleSort("id")} style={{ padding: "12px", cursor: "pointer", userSelect: "none", width: "80px" }}>
+              ID {sortField === "id" ? (sortOrder === "asc" ? "↑" : "↓") : "↕"}
+            </th>
+            <th onClick={() => handleSort("filename")} style={{ padding: "12px", cursor: "pointer", userSelect: "none" }}>
+              Filename {sortField === "filename" ? (sortOrder === "asc" ? "↑" : "↓") : "↕"}
+            </th>
+            <th onClick={() => handleSort("status")} style={{ padding: "12px", cursor: "pointer", userSelect: "none", width: "120px" }}>
+              Status {sortField === "status" ? (sortOrder === "asc" ? "↑" : "↓") : "↕"}
+            </th>
             <th style={{ padding: "12px" }}>Extracted Data / Actions</th>
           </tr>
         </thead>
         <tbody>
-          {allDocuments.map((doc) => (
-            <tr key={doc.id} style={{ borderBottom: "1px solid #eee", verticalAlign: "top" }}>
-              <td style={{ padding: "12px" }}>{doc.id}</td>
-              <td style={{ padding: "12px" }}>{doc.filename}</td>
-              <td style={{ padding: "12px", fontWeight: "bold", color: doc.status === "Finalized" ? "purple" : doc.status === "Completed" ? "green" : "blue" }}>
-                {doc.status}
-              </td>
-              <td style={{ padding: "12px" }}>
-                
-                {editingId === doc.id ? (
-                  <div>
-                    <textarea 
-                      value={editFormText} 
-                      onChange={(e) => setEditFormText(e.target.value)}
-                      style={{ width: "100%", height: "120px", fontFamily: "monospace", padding: "8px" }}
-                    />
-                    <br />
-                    <button onClick={() => handleFinalizeSubmit(doc.id)} style={{ marginTop: "8px", padding: "6px 12px", backgroundColor: "purple", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
-                      Save & Finalize
-                    </button>
-                    <button onClick={() => setEditingId(null)} style={{ marginTop: "8px", marginLeft: "8px", padding: "6px 12px", backgroundColor: "gray", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    {doc.extracted_data && (
-                       <pre style={{ fontSize: "12px", margin: "0 0 10px 0", whiteSpace: "pre-wrap" }}>
-                         {JSON.stringify(doc.extracted_data, null, 2)}
-                       </pre>
-                    )}
-                    <div>
-                      {doc.status === "Completed" && (
-                        <button onClick={() => handleEditClick(doc)} style={{ padding: "6px 12px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", marginRight: "8px" }}>
-                          Review & Edit
-                        </button>
-                      )}
-                      <button onClick={() => handleDeleteClick(doc.id)} style={{ padding: "6px 12px", backgroundColor: "#dc3545", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
+          {/* Use displayedDocuments instead of allDocuments */}
+          {displayedDocuments.length === 0 ? (
+            <tr>
+              <td colSpan={4} style={{ textAlign: "center", padding: "20px", color: "#666" }}>
+                No documents match your search or filter.
               </td>
             </tr>
-          ))}
+          ) : (
+            displayedDocuments.map((doc) => (
+              <tr key={doc.id} style={{ borderBottom: "1px solid #eee", verticalAlign: "top" }}>
+                <td style={{ padding: "12px" }}>{doc.id}</td>
+                <td style={{ padding: "12px" }}>{doc.filename}</td>
+                <td style={{ padding: "12px", fontWeight: "bold", color: doc.status === "Finalized" ? "purple" : doc.status === "Completed" ? "green" : "blue" }}>
+                  {doc.status}
+                </td>
+                <td style={{ padding: "12px" }}>
+                  
+                  {editingId === doc.id ? (
+                    <div>
+                      <textarea 
+                        value={editFormText} 
+                        onChange={(e) => setEditFormText(e.target.value)}
+                        style={{ width: "100%", height: "120px", fontFamily: "monospace", padding: "8px" }}
+                      />
+                      <br />
+                      <button onClick={() => handleFinalizeSubmit(doc.id)} style={{ marginTop: "8px", padding: "6px 12px", backgroundColor: "purple", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+                        Save & Finalize
+                      </button>
+                      <button onClick={() => setEditingId(null)} style={{ marginTop: "8px", marginLeft: "8px", padding: "6px 12px", backgroundColor: "gray", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      {doc.extracted_data && (
+                         <pre style={{ fontSize: "12px", margin: "0 0 10px 0", whiteSpace: "pre-wrap" }}>
+                           {JSON.stringify(doc.extracted_data, null, 2)}
+                         </pre>
+                      )}
+                      <div>
+                        {doc.status === "Completed" && (
+                          <button onClick={() => handleEditClick(doc)} style={{ padding: "6px 12px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", marginRight: "8px" }}>
+                            Review & Edit
+                          </button>
+                        )}
+                        <button onClick={() => handleDeleteClick(doc.id)} style={{ padding: "6px 12px", backgroundColor: "#dc3545", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
