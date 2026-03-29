@@ -16,8 +16,12 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # NEW: The "*" means "Allow any website to talk to me"
-    allow_credentials=False, # NEW: This must be False when using "*"
+    # We explicitly whitelist your Vercel site and your local laptop!
+    allow_origins=[
+        "https://async-doc-project.vercel.app", 
+        "http://localhost:5173"
+    ], 
+    allow_credentials=True, 
     allow_methods=["*"], 
     allow_headers=["*"],
 )
