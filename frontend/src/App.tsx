@@ -10,7 +10,6 @@ function App() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editFormText, setEditFormText] = useState<string>("")
 
-  // --- NEW: STATE FOR SEARCH, FILTER, AND SORT ---
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [statusFilter, setStatusFilter] = useState<string>("All")
   const [sortField, setSortField] = useState<string>("id") 
@@ -21,7 +20,8 @@ function App() {
     if (jobId && (status === "Queued" || status === "Processing")) {
       interval = setInterval(async () => {
         try {
-          const response = await fetch(`http://127.0.0.1:8000/documents/${jobId}`);
+          // FIXED: Backticks and ${}
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/documents/${jobId}`);
           const data = await response.json();
           setStatus(data.status);
           if (data.status === "Completed") {
@@ -35,9 +35,9 @@ function App() {
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/documents/");
+      // FIXED: Backticks and ${}
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/documents/`);
       const data = await response.json();
-      // SAFETY NET: Make sure data is an array before saving it, and remove hardcoded sorting
       if (Array.isArray(data)) {
         setAllDocuments(data);
       }
@@ -68,7 +68,8 @@ function App() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/upload/", { method: "POST", body: formData });
+      // FIXED: Backticks and ${}
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/upload/`, { method: "POST", body: formData });
       const data = await response.json();
       setJobId(data.job_id);
       setStatus(data.status);
@@ -85,7 +86,8 @@ function App() {
   const handleFinalizeSubmit = async (docId: number) => {
     try {
       const parsedData = JSON.parse(editFormText);
-      await fetch(`http://127.0.0.1:8000/documents/${docId}/finalize`, {
+      // This one was actually correct in your file!
+      await fetch(`${import.meta.env.VITE_API_URL}/documents/${docId}/finalize`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ extracted_data: parsedData })
@@ -101,7 +103,8 @@ function App() {
     const confirmDelete = window.confirm("Are you sure you want to permanently delete this document?");
     if (!confirmDelete) return;
     try {
-      await fetch(`http://127.0.0.1:8000/documents/${docId}`, { method: "DELETE" });
+      // FIXED: Backticks and ${}
+      await fetch(`${import.meta.env.VITE_API_URL}/documents/${docId}`, { method: "DELETE" });
       fetchDocuments();
     } catch (error) {
       alert("Failed to delete the document.");
@@ -109,28 +112,26 @@ function App() {
   };
 
   const handleExportJSON = () => {
-    window.open("http://127.0.0.1:8000/export/json", "_blank");
+    // FIXED: Backticks and ${}
+    window.open(`${import.meta.env.VITE_API_URL}/export/json`, "_blank");
   };
 
   const handleExportCSV = () => {
-    window.open("http://127.0.0.1:8000/export/csv", "_blank");
+    // FIXED: Backticks and ${}
+    window.open(`${import.meta.env.VITE_API_URL}/export/csv`, "_blank");
   };
 
-  // --- NEW: SORTING CLICK HANDLER ---
   const handleSort = (field: string) => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortOrder("desc"); // Default to descending when clicking a new column
+      setSortOrder("desc"); 
     }
   };
 
-  // --- NEW: APPLY SEARCH, FILTER, AND SORT ---
-  // We create a copy of our data to modify for the screen
   let displayedDocuments = [...allDocuments];
 
-  // 1. Search Logic
   if (searchTerm) {
     displayedDocuments = displayedDocuments.filter(doc => 
       (doc.filename && doc.filename.toLowerCase().includes(searchTerm.toLowerCase())) || 
@@ -138,12 +139,10 @@ function App() {
     );
   }
 
-  // 2. Filter Logic
   if (statusFilter !== "All") {
     displayedDocuments = displayedDocuments.filter(doc => doc.status === statusFilter);
   }
 
-  // 3. Sort Logic
   displayedDocuments.sort((a, b) => {
     let valA = a[sortField] !== null && a[sortField] !== undefined ? a[sortField] : "";
     let valB = b[sortField] !== null && b[sortField] !== undefined ? b[sortField] : "";
@@ -180,7 +179,6 @@ function App() {
         </div>
       </div>
 
-      {/* NEW: SEARCH AND FILTER UI */}
       <div style={{ display: "flex", gap: "15px", margin: "20px 0", padding: "15px", backgroundColor: "#e9ecef", borderRadius: "8px" }}>
         <div style={{ flex: 1 }}>
           <label style={{ fontWeight: "bold", marginRight: "10px" }}>Search:</label>
@@ -211,7 +209,6 @@ function App() {
       <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", marginTop: "10px" }}>
         <thead>
           <tr style={{ backgroundColor: "#f0f0f0", borderBottom: "2px solid #ddd" }}>
-            {/* NEW: CLICKABLE HEADERS FOR SORTING */}
             <th onClick={() => handleSort("id")} style={{ padding: "12px", cursor: "pointer", userSelect: "none", width: "80px" }}>
               ID {sortField === "id" ? (sortOrder === "asc" ? "↑" : "↓") : "↕"}
             </th>
@@ -225,7 +222,6 @@ function App() {
           </tr>
         </thead>
         <tbody>
-          {/* Use displayedDocuments instead of allDocuments */}
           {displayedDocuments.length === 0 ? (
             <tr>
               <td colSpan={4} style={{ textAlign: "center", padding: "20px", color: "#666" }}>

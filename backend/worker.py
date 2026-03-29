@@ -1,13 +1,16 @@
 from celery import Celery
 import time
+import os
 from database import SessionLocal
 import models
 
-# 1. Connect the Cook to the Kitchen
+# 1. Connect the Cook to the Kitchen (using Environment Variables!)
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6380/0")
+
 celery_app = Celery(
     "worker",
-    broker="redis://localhost:6380/0",
-    backend="redis://localhost:6380/0"
+    broker=REDIS_URL,
+    backend=REDIS_URL
 )
 
 # 2. The Background Recipe

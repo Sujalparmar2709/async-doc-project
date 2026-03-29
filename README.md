@@ -26,7 +26,6 @@ Navigate to the backend directory, create a virtual environment, install depende
 
 
 cd backend
-python -m venv venv
 
 # Activate the environment (Windows)
 venv\Scripts\activate  
