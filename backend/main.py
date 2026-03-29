@@ -16,8 +16,8 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], 
-    allow_credentials=True,
+    allow_origins=["*"], # NEW: The "*" means "Allow any website to talk to me"
+    allow_credentials=False, # NEW: This must be False when using "*"
     allow_methods=["*"], 
     allow_headers=["*"],
 )
